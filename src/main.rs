@@ -1,12 +1,29 @@
-use std::{io, time::Duration};
+use std::{io, process::Command, time::Duration};
 
 use chrono::Local;
 use crossterm::event::{self};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     widgets::{Block, Borders, Paragraph},
 };
+
+#[cfg(target_os = "linux")]
+fn get_current_song() -> String {
+    let output = Command::new("playerctl")
+        .args(["metadata", "--format", "{{title}} - {{artist}}"])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        _ => "No Music Playing".to_string(),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_current_song() -> String {
+    "Music PLayer only on Linux for now :( Sorry for that".to_string
+}
 
 fn main() -> io::Result<()> {
     ratatui::run(|terminal| {
@@ -28,13 +45,28 @@ fn main() -> io::Result<()> {
                 frame.render_widget(left_pane, cols[0]);
                 frame.render_widget(center_pane, cols[1]);
 
+                let center_panes = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(10), Constraint::Min(3)])
+                    .split(cols[1]);
+
+                let song_widget = Paragraph::new(get_current_song())
+                    .block(Block::default().borders(Borders::ALL).title("Music"))
+                    .style(
+                        Style::default()
+                            .fg(Color::LightBlue)
+                            .add_modifier(Modifier::BOLD),
+                    );
+
+                frame.render_widget(song_widget, center_panes[0]);
+
                 let right_panes = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Length(5), Constraint::Min(3)])
                     .split(cols[2]);
 
                 let date_str = Local::now().format("%A, %b %d").to_string();
-                let time_str = Local::now().format("%I:%m %p").to_string();
+                let time_str = Local::now().format("%I:%M:%S %p").to_string();
 
                 let clock_display = format!("{}\n\n{}", date_str, time_str);
 
