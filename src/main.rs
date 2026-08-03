@@ -1,13 +1,16 @@
-use std::{io, process::Command, time::Duration};
+pub mod config;
 
 use chrono::Local;
+use config::Config;
 use crossterm::event::{self, KeyCode};
+use dirs::config_dir;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, List, ListState, Paragraph},
 };
+use std::{fs, io, path::PathBuf, process::Command, time::Duration};
 
 struct App {
     song_title: String,
@@ -265,4 +268,35 @@ fn get_current_song() -> String {
 #[cfg(not(target_os = "linux"))]
 fn get_current_song() -> String {
     "Music PLayer only on Linux for now :( Sorry for that".to_string()
+}
+
+fn load_config() -> Config {
+    let config_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("startui");
+
+    let config_path = config_dir.join("config.toml");
+
+    if !config_dir.exists() {
+        let _ = fs::create_dir_all(&config_dir);
+
+        let default_toml = r#"# StarTUI Config File
+            rss_feeds = [
+                "https://news.ycombinator.com/rss",
+                "https://reddit.com/r/rust/.rss"
+            ]
+        "#;
+
+        let _ = fs::write(&config_path, default_toml);
+    }
+
+    let config_content =
+        fs::read_to_string(&config_path).unwrap_or_else(|_| "rss_feeds = []".to_string());
+
+    toml::from_str(&config_content).unwrap_or_else(|_| Config {
+        rss_feeds: vec![
+            "https://news.ycombinator.com/rss".to_string(),
+            "https://reddit.com/r/rust/.rss".to_string(),
+        ],
+    })
 }
