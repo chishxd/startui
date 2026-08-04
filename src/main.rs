@@ -253,8 +253,11 @@ fn draw_right_pane(frame: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn main() -> io::Result<()> {
-    let config = load_config();
-    let feeds = config.rss_feeds.clone();
+    let config_file = load_config();
+    let feeds = config_file.rss_feeds.clone();
+
+    let config_builder = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5)));
+    let agent: ureq::Agent = config_builder.build().into();
 
     let (tx, rx) = mpsc::channel::<Vec<RssItem>>();
 
@@ -263,24 +266,38 @@ fn main() -> io::Result<()> {
             let mut items: Vec<RssItem> = Vec::new();
 
             for url in &feeds {
-                if let Ok(response) = ureq::get(url).call() {
-                    let reader = response.into_body().into_reader();
-                    if let Ok(feed) = feed_rs::parser::parse(reader) {
-                        for entry in feed.entries.iter().take(15) {
-                            let title = entry
-                                .title
-                                .as_ref()
-                                .map(|t| t.content.clone())
-                                .unwrap_or_else(|| "No Title".to_string());
+                let request = agent
+                    .get(url)
+                    .header("User-Agent", "StarTUI/1.0 (contact: github.com/chishxd)");
 
-                            let link = entry
-                                .links
-                                .first()
-                                .map(|l| l.href.clone())
-                                .unwrap_or_default();
+                match request.call() {
+                    Ok(response) => {
+                        let reader = response.into_body().into_reader();
+                        match feed_rs::parser::parse(reader) {
+                            Ok(feed) => {
+                                for entry in feed.entries.iter().take(15) {
+                                    let title = entry
+                                        .title
+                                        .as_ref()
+                                        .map(|t| t.content.clone())
+                                        .unwrap_or_else(|| "No Title".to_string());
 
-                            items.push(RssItem { title, link });
+                                    let link = entry
+                                        .links
+                                        .first()
+                                        .map(|l| l.href.clone())
+                                        .unwrap_or_default();
+
+                                    items.push(RssItem { title, link });
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("[RSS ERROR] HTTP request failed for {}: {:?}", url, err);
+                            }
                         }
+                    }
+                    Err(err) => {
+                        eprintln!("[RSS ERROR] HTTP request failed for {}: {:?}", url, err);
                     }
                 }
             }
@@ -354,13 +371,16 @@ fn load_config() -> Config {
         let _ = fs::write(&config_path, default_toml);
     }
 
-    let config_content =
-        fs::read_to_string(&config_path).unwrap_or_else(|_| "rss_feeds = []".to_string());
+    let config_content = fs::read_to_string(&config_path).unwrap_or_else(|e| {
+        eprintln!("[ERROR] Failed to read config file: {}", e);
+        std::process::exit(1);
+    });
 
-    toml::from_str(&config_content).unwrap_or_else(|_| Config {
-        rss_feeds: vec![
-            "https://news.ycombinator.com/rss".to_string(),
-            "https://reddit.com/r/rust/.rss".to_string(),
-        ],
-    })
+    match toml::from_str(&config_content) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("[CONFIG ERROR] Failed to parse config.toml: {}", err);
+            std::process::exit(1);
+        }
+    }
 }
