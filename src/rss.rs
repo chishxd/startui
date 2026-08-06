@@ -1,4 +1,5 @@
-use std::{sync::mpsc, thread, time::Duration};
+use std::io::Write;
+use std::{fs::OpenOptions, sync::mpsc, thread, time::Duration};
 
 #[derive(Clone)]
 pub struct RssItem {
@@ -6,8 +7,22 @@ pub struct RssItem {
     pub link: String,
 }
 
-pub fn spawn_fetcher(feeds: Vec<String>) -> mpsc::Receiver<Vec<RssItem>> {
-    let (tx, rx) = mpsc::channel::<Vec<RssItem>>();
+fn log_error(msg: &str) {
+    if let Some(config_dir) = dirs::config_dir() {
+        let log_path = config_dir.join("startui/error.log");
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
+            let _ = writeln!(
+                file,
+                "[{}],  {}",
+                chrono::Local::now().format("%Y-%m-%d  %H:%M:%S"),
+                msg
+            );
+        }
+    }
+}
+
+pub fn spawn_fetcher(feeds: Vec<String>) -> mpsc::Receiver<Result<Vec<RssItem>, String>> {
+    let (tx, rx) = mpsc::channel::<Result<Vec<RssItem>, String>>();
 
     let config_builder = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5)));
     let agent: ureq::Agent = config_builder.build().into();
@@ -15,6 +30,7 @@ pub fn spawn_fetcher(feeds: Vec<String>) -> mpsc::Receiver<Vec<RssItem>> {
     thread::spawn(move || {
         loop {
             let mut items: Vec<RssItem> = Vec::new();
+            let mut error_msg = None;
 
             for url in &feeds {
                 let request = agent
@@ -43,17 +59,23 @@ pub fn spawn_fetcher(feeds: Vec<String>) -> mpsc::Receiver<Vec<RssItem>> {
                                 }
                             }
                             Err(err) => {
-                                eprintln!("[RSS ERROR] HTTP request failed for {}: {:?}", url, err);
+                                let log_msg = format!("HTTP request failed for {}: {:?}", url, err);
+                                log_error(&log_msg);
+                                error_msg = Some("Network Error: Check error.log".to_string());
                             }
                         }
                     }
                     Err(err) => {
-                        eprintln!("[RSS ERROR] HTTP request failed for {}: {:?}", url, err);
+                        let log_msg = format!("HTTP request failed for {}: {:?}", url, err);
+                        log_error(&log_msg);
+                        error_msg = Some("Network Error: Check error.log".to_string());
                     }
                 }
             }
             if !items.is_empty() {
-                let _ = tx.send(items);
+                let _ = tx.send(Ok(items));
+            } else if let Some(err) = error_msg {
+                let _ = tx.send(Err(err));
             }
 
             thread::sleep(Duration::from_secs(300));

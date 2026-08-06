@@ -10,6 +10,7 @@ pub struct App {
     pub rss_state: ListState,
     pub active_pane: ActivePane,
     pub rss_items: Vec<RssItem>,
+    pub rss_error: Option<String>,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -31,6 +32,7 @@ impl Default for App {
             rss_state,
             active_pane: ActivePane::Left,
             rss_items: Vec::new(),
+            rss_error: None,
         }
     }
 }

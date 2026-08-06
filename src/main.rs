@@ -17,10 +17,20 @@ fn main() -> io::Result<()> {
     let mut app = App::new();
     ratatui::run(|terminal| {
         loop {
-            if let Ok(new_items) = rx.try_recv() {
-                app.rss_items = new_items;
-                app.rss_state.select(Some(0));
+            if let Ok(result) = rx.try_recv() {
+                match result {
+                    Ok(new_items) => {
+                        app.rss_items = new_items;
+                        app.rss_error = None;
+                        app.rss_state.select(Some(0));
+                    }
+                    Err(err) => {
+                        app.rss_items.clear();
+                        app.rss_error = Some(err);
+                    }
+                }
             }
+
             terminal.draw(|frame| draw(frame, &mut app))?;
 
             if event::poll(Duration::from_millis(250))?

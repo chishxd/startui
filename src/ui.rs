@@ -4,7 +4,7 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, List, Padding, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Padding, Paragraph, Wrap},
 };
 
 use crate::App;
@@ -37,16 +37,35 @@ fn draw_left_pane(frame: &mut Frame, area: Rect, app: &mut App) {
         }));
 
     if app.rss_items.is_empty() {
-        let loading_widget = Paragraph::new("Loading feed...")
+        let message = if let Some(ref err) = app.rss_error {
+            err.as_str()
+        } else {
+            "Loading feed..."
+        };
+
+        let style = if app.rss_error.is_some() {
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+
+        let loading_widget = Paragraph::new(message)
             .alignment(Alignment::Center)
-            .block(left_block);
+            .wrap(Wrap { trim: true })
+            .block(left_block)
+            .style(style);
 
         frame.render_widget(loading_widget, area);
     } else {
-        let items: Vec<&str> = app
+        let max_width = (area.width as usize).saturating_sub(4);
+        let items: Vec<ListItem> = app
             .rss_items
             .iter()
-            .map(|item| item.title.as_str())
+            .map(|item| {
+                let mut wrapped = wrap_text(&item.title, max_width);
+                wrapped.push('\n');
+                ListItem::new(wrapped)
+            })
             .collect();
 
         let list = List::new(items)
@@ -57,6 +76,24 @@ fn draw_left_pane(frame: &mut Frame, area: Rect, app: &mut App) {
 
         frame.render_stateful_widget(list, area, &mut app.rss_state);
     }
+}
+
+fn wrap_text(text: &str, max_width: usize) -> String {
+    let mut result = String::new();
+    let mut current_line_len = 0;
+
+    for word in text.split_whitespace() {
+        if current_line_len + word.len() + 1 > max_width {
+            result.push('\n');
+            current_line_len = 0;
+        } else if !result.is_empty() && current_line_len > 0 {
+            result.push(' ');
+            current_line_len += 1;
+        }
+        result.push_str(word);
+        current_line_len += word.len();
+    }
+    result
 }
 
 fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
