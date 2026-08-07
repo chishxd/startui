@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
 
     let rx = rss::spawn_fetcher(config_file.rss_feeds.clone());
 
-    let mut app = App::new();
+    let mut app = App::new(&config_file);
     ratatui::run(|terminal| {
         loop {
             if let Ok(result) = rx.try_recv() {

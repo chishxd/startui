@@ -190,7 +190,7 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
         .cpus()
         .first()
         .map(|cpu| cpu.brand().trim().to_string())
-        .unwrap_or_else(|| "Unknown CPU".to_string());
+        .unwrap_or_else(|| "Unknown".to_string());
 
     //Used a lil AI here, to find how Fastfetch does this.
     let total_mem_gb = app.sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
@@ -358,5 +358,23 @@ fn draw_right_pane(frame: &mut Frame, area: Rect, app: &mut App) {
         );
 
     frame.render_widget(clock_widget, right_panes[0]);
-    //frame.render_widget(Block::default().borders(Borders::ALL), right_panes[1]);
+
+    let bookmark_items: Vec<&str> = app.bookmarks.iter().map(|b| b.name.as_str()).collect();
+
+    let launcher_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Launcher ")
+        .padding(Padding::uniform(1))
+        .border_style(Style::default().fg(if app.active_pane == ActivePane::Left {
+            Color::Yellow
+        } else {
+            Color::DarkGray
+        }));
+    let list = List::new(bookmark_items)
+        .block(launcher_block)
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol(">  ");
+
+    frame.render_stateful_widget(list, right_panes[1], &mut app.bookmarks_state);
 }

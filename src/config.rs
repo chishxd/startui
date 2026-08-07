@@ -5,6 +5,13 @@ use serde::Deserialize;
 #[derive(Deserialize, Clone)]
 pub struct Config {
     pub rss_feeds: Vec<String>,
+    pub bookmarks: Vec<BookmarkConfig>,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct BookmarkConfig {
+    pub name: String,
+    pub url: String,
 }
 
 pub fn load_config() -> Config {
@@ -18,11 +25,22 @@ pub fn load_config() -> Config {
         let _ = fs::create_dir_all(&config_dir);
 
         let default_toml = r#"# StarTUI Config File
-            rss_feeds = [
-                "https://news.ycombinator.com/rss",
-                "https://reddit.com/r/rust/.rss"
-            ]
-        "#;
+    rss_feeds = [
+     "https://news.ycombinator.com/rss",
+     "https://reddit.com/r/rust/.rss"
+    ]
+    [[bookmarks]]
+     name = "Github"
+     url = "https://github.com"
+
+    [[bookmarks]]
+     name = "YouTube"
+     url = "https://youtube.com"
+
+    [[bookmarks]]
+     name = "Reddit"
+     url = "https://reddit.com"
+    "#;
 
         let _ = fs::write(&config_path, default_toml);
     }

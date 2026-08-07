@@ -2,7 +2,11 @@ use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
 use sysinfo::{ProcessesToUpdate, System};
 
-use crate::{rss::RssItem, utils};
+use crate::{
+    config::{BookmarkConfig, Config},
+    rss::RssItem,
+    utils,
+};
 
 pub struct App {
     pub song_title: String,
@@ -16,6 +20,8 @@ pub struct App {
     pub cpu_usage: f32,
     pub mem_usage: f32,
     pub logo: String,
+    pub bookmarks: Vec<BookmarkConfig>,
+    pub bookmarks_state: ListState,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -25,10 +31,13 @@ pub enum ActivePane {
     Right,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    pub fn new(config: &Config) -> Self {
         let mut rss_state = ListState::default();
         rss_state.select(Some(0));
+
+        let mut bookmarks_state = ListState::default();
+        bookmarks_state.select(Some(0));
 
         let mut sys = System::new_all();
         sys.refresh_cpu_all();
@@ -37,6 +46,8 @@ impl Default for App {
         let os_name = System::name().unwrap_or_else(|| "Linux".to_string());
 
         let logo = crate::utils::get_cached_logo(&os_name);
+
+        let bookmarks: Vec<BookmarkConfig> = config.bookmarks.iter().take(10).cloned().collect();
 
         Self {
             song_title: "No Music Playing".to_string(),
@@ -50,34 +61,30 @@ impl Default for App {
             cpu_usage: 0.0,
             mem_usage: 0.0,
             logo,
+            bookmarks,
+            bookmarks_state,
         }
-    }
-}
-
-impl App {
-    pub fn new() -> Self {
-        Self::default()
     }
 
     pub fn tick(&mut self) {
         self.tick_counter = self.tick_counter.wrapping_add(1);
-        self.sys.refresh_cpu_all();
-        self.sys.refresh_memory();
-        self.sys.refresh_processes(ProcessesToUpdate::All, true);
-
-        self.cpu_usage = self.sys.global_cpu_usage();
-
-        let total_mem = self.sys.total_memory() as f32;
-        let used_mem = self.sys.used_memory() as f32;
-        if total_mem > 0.0 {
-            self.mem_usage = (used_mem / total_mem) * 100.0
-        }
 
         if self.tick_counter.is_multiple_of(4) {
             let new_song = utils::get_current_song();
             if new_song != self.song_title {
                 self.scroll_offset = 0;
                 self.song_title = new_song;
+            }
+            self.sys.refresh_cpu_all();
+            self.sys.refresh_memory();
+            self.sys.refresh_processes(ProcessesToUpdate::All, true);
+
+            self.cpu_usage = self.sys.global_cpu_usage();
+
+            let total_mem = self.sys.total_memory() as f32;
+            let used_mem = self.sys.used_memory() as f32;
+            if total_mem > 0.0 {
+                self.mem_usage = (used_mem / total_mem) * 100.0
             }
         }
 
@@ -103,11 +110,15 @@ impl App {
             KeyCode::Char('k') | KeyCode::Up => {
                 if let ActivePane::Left = self.active_pane {
                     self.scroll_rss_up();
+                } else if let ActivePane::Right = self.active_pane {
+                    self.scroll_bookmark_up();
                 }
             }
             KeyCode::Char('j') | KeyCode::Down => {
                 if let ActivePane::Left = self.active_pane {
                     self.scroll_rss_down();
+                } else if let ActivePane::Right = self.active_pane {
+                    self.scroll_bookmark_down();
                 }
             }
             KeyCode::Enter => {
@@ -116,6 +127,11 @@ impl App {
                     && let Some(selected_item) = self.rss_items.get(selected_index)
                 {
                     let _ = open::that(&selected_item.link);
+                } else if let ActivePane::Right = self.active_pane
+                    && let Some(selected_index) = self.bookmarks_state.selected()
+                    && let Some(selected_item) = self.bookmarks.get(selected_index)
+                {
+                    let _ = open::that(&selected_item.url);
                 }
             }
             _ => {}
@@ -150,5 +166,34 @@ impl App {
         };
 
         self.rss_state.select(Some(next));
+    }
+    pub fn scroll_bookmark_up(&mut self) {
+        if self.bookmarks.is_empty() {
+            return;
+        }
+
+        let current = self.bookmarks_state.selected().unwrap_or(0);
+
+        let next = if current > 0 {
+            current - 1
+        } else {
+            self.bookmarks.len() - 1 //Wrap to last item in list
+        };
+
+        self.bookmarks_state.select(Some(next));
+    }
+    pub fn scroll_bookmark_down(&mut self) {
+        if self.bookmarks.is_empty() {
+            return;
+        }
+        let current = self.bookmarks_state.selected().unwrap_or(0);
+
+        let next = if current < self.bookmarks.len() - 1 {
+            current + 1
+        } else {
+            0 //Wrap to first item in list
+        };
+
+        self.bookmarks_state.select(Some(next));
     }
 }
