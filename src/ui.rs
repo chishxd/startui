@@ -4,8 +4,10 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Padding, Paragraph, Wrap},
 };
+use sysinfo::System;
 
 use crate::App;
 use crate::app::ActivePane;
@@ -156,22 +158,91 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
     let sys_panes = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(4),
+            Constraint::Length(2),
             Constraint::Length(2),
             Constraint::Length(1),
             Constraint::Length(2),
-            Constraint::Min(0),
         ])
         .split(inner_area);
+
+    let spec_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(12),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .split(sys_panes[0]);
+
+    let logo_text = "  /\\_/\\\n ( o.o )\n  > ^ <\n [StarTUI]";
+    let logo_widget = Paragraph::new(logo_text).style(
+        Style::default()
+            .fg(Color::LightBlue)
+            .add_modifier(Modifier::BOLD),
+    );
+
+    let os_name = System::name().unwrap_or_else(|| "Linux".to_string());
+    let kernel_ver = System::kernel_version().unwrap_or_else(|| "Unknown".to_string());
+    let host_name = System::host_name().unwrap_or_else(|| "localhost".to_string());
+
+    let uptime_secs = System::uptime();
+    let hours = uptime_secs / 3600;
+    let minutes = (uptime_secs % 3600) / 60;
+    let final_uptime = format!("{}h {}m", hours, minutes);
+
+    let specs_lines = vec![
+        Line::from(vec![
+            Span::styled(
+                "OS:      ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(os_name),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "Kernel:  ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(kernel_ver),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "Host:    ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(host_name),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "Uptime:  ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(final_uptime),
+        ]),
+    ];
+
+    let specs_widget = Paragraph::new(specs_lines);
+    frame.render_widget(logo_widget, spec_cols[0]);
+    frame.render_widget(specs_widget, spec_cols[2]);
 
     let cpu_cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(12)])
-        .split(sys_panes[0]);
+        .split(sys_panes[2]);
 
     let ram_cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Min(0), Constraint::Length(12)])
-        .split(sys_panes[2]);
+        .split(sys_panes[4]);
 
     let cpu_gauge = Gauge::default()
         .gauge_style(
@@ -180,8 +251,7 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )
         .percent(app.cpu_usage as u16)
-        .label(""); // Empty label so the bar is pure and solid! [1]
-
+        .label("");
     let cpu_label = Paragraph::new(format!("CPU: {:.1}%", app.cpu_usage))
         .alignment(Alignment::Right)
         .style(
