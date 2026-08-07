@@ -1,6 +1,6 @@
 use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
-use sysinfo::System;
+use sysinfo::{ProcessesToUpdate, System};
 
 use crate::{rss::RssItem, utils};
 
@@ -15,6 +15,7 @@ pub struct App {
     pub sys: System,
     pub cpu_usage: f32,
     pub mem_usage: f32,
+    pub logo: String,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -33,6 +34,10 @@ impl Default for App {
         sys.refresh_cpu_all();
         sys.refresh_memory();
 
+        let os_name = System::name().unwrap_or_else(|| "Linux".to_string());
+
+        let logo = crate::utils::get_cached_logo(&os_name);
+
         Self {
             song_title: "No Music Playing".to_string(),
             scroll_offset: 0,
@@ -44,6 +49,7 @@ impl Default for App {
             sys,
             cpu_usage: 0.0,
             mem_usage: 0.0,
+            logo,
         }
     }
 }
@@ -57,6 +63,7 @@ impl App {
         self.tick_counter = self.tick_counter.wrapping_add(1);
         self.sys.refresh_cpu_all();
         self.sys.refresh_memory();
+        self.sys.refresh_processes(ProcessesToUpdate::All, true);
 
         self.cpu_usage = self.sys.global_cpu_usage();
 

@@ -158,7 +158,7 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
     let sys_panes = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),
+            Constraint::Length(10),
             Constraint::Length(2),
             Constraint::Length(2),
             Constraint::Length(1),
@@ -169,14 +169,13 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
     let spec_cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(12),
+            Constraint::Length(24),
             Constraint::Length(1),
             Constraint::Min(0),
         ])
         .split(sys_panes[0]);
 
-    let logo_text = "  /\\_/\\\n ( o.o )\n  > ^ <\n [StarTUI]";
-    let logo_widget = Paragraph::new(logo_text).style(
+    let logo_widget = Paragraph::new(app.logo.as_str()).style(
         Style::default()
             .fg(Color::LightBlue)
             .add_modifier(Modifier::BOLD),
@@ -185,6 +184,20 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
     let os_name = System::name().unwrap_or_else(|| "Linux".to_string());
     let kernel_ver = System::kernel_version().unwrap_or_else(|| "Unknown".to_string());
     let host_name = System::host_name().unwrap_or_else(|| "localhost".to_string());
+
+    let cpus = app
+        .sys
+        .cpus()
+        .first()
+        .map(|cpu| cpu.brand().trim().to_string())
+        .unwrap_or_else(|| "Unknown CPU".to_string());
+
+    //Used a lil AI here, to find how Fastfetch does this.
+    let total_mem_gb = app.sys.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+    let used_mem_gb = app.sys.used_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+    let memory_str = format!("{:.1} GiB / {:.1} GiB", used_mem_gb, total_mem_gb);
+
+    let processes_count = app.sys.processes().len().to_string();
 
     let uptime_secs = System::uptime();
     let hours = uptime_secs / 3600;
@@ -227,6 +240,33 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
                     .add_modifier(Modifier::BOLD),
             ),
             Span::raw(final_uptime),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "CPU:     ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(cpus),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "Memory:  ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(memory_str),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                "Tasks:   ",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(processes_count),
         ]),
     ];
 
