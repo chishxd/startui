@@ -82,6 +82,14 @@ impl App {
                     self.scroll_rss_down();
                 }
             }
+            KeyCode::Enter => {
+                if let ActivePane::Left = self.active_pane
+                    && let Some(selected_index) = self.rss_state.selected()
+                    && let Some(selected_item) = self.rss_items.get(selected_index)
+                {
+                    let _ = open::that(&selected_item.link);
+                }
+            }
             _ => {}
         }
     }
