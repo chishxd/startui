@@ -4,7 +4,7 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, List, ListItem, Padding, Paragraph, Wrap},
+    widgets::{Block, Borders, Gauge, List, ListItem, Padding, Paragraph, Wrap},
 };
 
 use crate::App;
@@ -107,6 +107,8 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(5), Constraint::Min(3)])
         .split(area);
+
+    //Music Widget Stuff
     let max_width = (center_panes[0].width as usize).saturating_sub(4);
     let song_chars: Vec<char> = app.song_title.chars().collect();
     let display_song = if song_chars.len() <= max_width {
@@ -140,6 +142,78 @@ fn draw_center_pane(frame: &mut Frame, area: Rect, app: &App) {
         );
 
     frame.render_widget(song_widget, center_panes[0]);
+
+    //System Resource stuff
+
+    let monitor_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" System ")
+        .padding(Padding::new(2, 2, 1, 1))
+        .border_style(Style::default().fg(border_color));
+
+    let inner_area = monitor_block.inner(center_panes[1]);
+
+    let sys_panes = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Length(2),
+            Constraint::Min(0),
+        ])
+        .split(inner_area);
+
+    let cpu_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(0), Constraint::Length(12)])
+        .split(sys_panes[0]);
+
+    let ram_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(0), Constraint::Length(12)])
+        .split(sys_panes[2]);
+
+    let cpu_gauge = Gauge::default()
+        .gauge_style(
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+        .percent(app.cpu_usage as u16)
+        .label(""); // Empty label so the bar is pure and solid! [1]
+
+    let cpu_label = Paragraph::new(format!("CPU: {:.1}%", app.cpu_usage))
+        .alignment(Alignment::Right)
+        .style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    let ram_gauge = Gauge::default()
+        .gauge_style(
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+        .percent(app.mem_usage as u16)
+        .label("");
+
+    let ram_label = Paragraph::new(format!("RAM: {:.1}%", app.mem_usage))
+        .alignment(Alignment::Right)
+        .style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    frame.render_widget(monitor_block, center_panes[1]);
+
+    frame.render_widget(cpu_gauge, cpu_cols[0]);
+    frame.render_widget(cpu_label, cpu_cols[1]);
+
+    frame.render_widget(ram_gauge, ram_cols[0]);
+    frame.render_widget(ram_label, ram_cols[1]);
 }
 
 fn draw_right_pane(frame: &mut Frame, area: Rect, app: &mut App) {

@@ -11,5 +11,6 @@ feed-rs = "2.4.0"
 open = "5.4.1"
 ratatui = "0.30.2"
 serde = { version = "1.0.229", features = ["derive"] }
+sysinfo = "0.38.4"
 toml = "1.1.4"
 ureq = "3.3.0"

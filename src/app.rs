@@ -1,5 +1,6 @@
 use crossterm::event::KeyCode;
 use ratatui::widgets::ListState;
+use sysinfo::System;
 
 use crate::{rss::RssItem, utils};
 
@@ -11,6 +12,9 @@ pub struct App {
     pub active_pane: ActivePane,
     pub rss_items: Vec<RssItem>,
     pub rss_error: Option<String>,
+    pub sys: System,
+    pub cpu_usage: f32,
+    pub mem_usage: f32,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -25,6 +29,10 @@ impl Default for App {
         let mut rss_state = ListState::default();
         rss_state.select(Some(0));
 
+        let mut sys = System::new_all();
+        sys.refresh_cpu_all();
+        sys.refresh_memory();
+
         Self {
             song_title: "No Music Playing".to_string(),
             scroll_offset: 0,
@@ -33,6 +41,9 @@ impl Default for App {
             active_pane: ActivePane::Left,
             rss_items: Vec::new(),
             rss_error: None,
+            sys,
+            cpu_usage: 0.0,
+            mem_usage: 0.0,
         }
     }
 }
@@ -44,6 +55,16 @@ impl App {
 
     pub fn tick(&mut self) {
         self.tick_counter = self.tick_counter.wrapping_add(1);
+        self.sys.refresh_cpu_all();
+        self.sys.refresh_memory();
+
+        self.cpu_usage = self.sys.global_cpu_usage();
+
+        let total_mem = self.sys.total_memory() as f32;
+        let used_mem = self.sys.used_memory() as f32;
+        if total_mem > 0.0 {
+            self.mem_usage = (used_mem / total_mem) * 100.0
+        }
 
         if self.tick_counter.is_multiple_of(4) {
             let new_song = utils::get_current_song();
