@@ -365,11 +365,7 @@ fn draw_right_pane(frame: &mut Frame, area: Rect, app: &mut App) {
         .borders(Borders::ALL)
         .title(" Launcher ")
         .padding(Padding::uniform(1))
-        .border_style(Style::default().fg(if app.active_pane == ActivePane::Left {
-            Color::Yellow
-        } else {
-            Color::DarkGray
-        }));
+        .border_style(Style::default().fg(border_color));
     let list = List::new(bookmark_items)
         .block(launcher_block)
         .style(Style::default().fg(Color::White))
