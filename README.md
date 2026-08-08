@@ -11,6 +11,13 @@ A cool minimal startpage for your terminal, written in Rust!
 
 ## Installation
 
+You can install the build from cargo!
+```
+cargo install startui
+```
+
+Or.. maybe I will upload Binary in GITHUB Releases too :3
+
 ### Prerequisites
 You need `fastfetch` installed for getting OS logo, TUI will still run fine, but you won't get cool Logo in TUI
 
